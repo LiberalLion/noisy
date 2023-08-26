@@ -46,9 +46,7 @@ class Crawler(object):
         random_user_agent = random.choice(self._config["user_agents"])
         headers = {'user-agent': random_user_agent}
 
-        response = requests.get(url, headers=headers, timeout=5)
-
-        return response
+        return requests.get(url, headers=headers, timeout=5)
 
     @staticmethod
     def _normalize_link(link, root_url):
@@ -70,13 +68,10 @@ class Crawler(object):
 
         # '//' means keep the current protocol used to access this URL
         if link.startswith("//"):
-            return "{}://{}{}".format(parsed_root_url.scheme, parsed_url.netloc, parsed_url.path)
+            return f"{parsed_root_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
 
         # possibly a relative path
-        if not parsed_url.scheme:
-            return urljoin(root_url, link)
-
-        return link
+        return urljoin(root_url, link) if not parsed_url.scheme else link
 
     @staticmethod
     def _is_valid_url(url):
@@ -124,9 +119,7 @@ class Crawler(object):
         urls = re.findall(pattern, str(body))
 
         normalize_urls = [self._normalize_link(url, root_url) for url in urls]
-        filtered_urls = list(filter(self._should_accept_url, normalize_urls))
-
-        return filtered_urls
+        return list(filter(self._should_accept_url, normalize_urls))
 
     def _remove_and_blacklist(self, link):
         """
@@ -156,7 +149,7 @@ class Crawler(object):
 
         random_link = random.choice(self._links)
         try:
-            logging.info("Visiting {}".format(random_link))
+            logging.info(f"Visiting {random_link}")
             sub_page = self._request(random_link).content
             sub_links = self._extract_urls(sub_page, random_link)
 
@@ -173,7 +166,9 @@ class Crawler(object):
                 self._remove_and_blacklist(random_link)
 
         except requests.exceptions.RequestException:
-            logging.debug("Exception on URL: %s, removing from list and trying again!" % random_link)
+            logging.debug(
+                f"Exception on URL: {random_link}, removing from list and trying again!"
+            )
             self._remove_and_blacklist(random_link)
 
         self._browse_from_links(depth + 1)
@@ -234,17 +229,17 @@ class Crawler(object):
             try:
                 body = self._request(url).content
                 self._links = self._extract_urls(body, url)
-                logging.debug("found {} links".format(len(self._links)))
+                logging.debug(f"found {len(self._links)} links")
                 self._browse_from_links()
 
             except requests.exceptions.RequestException:
-                logging.warn("Error connecting to root url: {}".format(url))
-                
+                logging.warn(f"Error connecting to root url: {url}")
+
             except MemoryError:
-                logging.warn("Error: content at url: {} is exhausting the memory".format(url))
+                logging.warn(f"Error: content at url: {url} is exhausting the memory")
 
             except LocationParseError:
-                logging.warn("Error encountered during parsing of: {}".format(url))
+                logging.warn(f"Error encountered during parsing of: {url}")
 
             except self.CrawlerTimedOut:
                 logging.info("Timeout has exceeded, exiting")
